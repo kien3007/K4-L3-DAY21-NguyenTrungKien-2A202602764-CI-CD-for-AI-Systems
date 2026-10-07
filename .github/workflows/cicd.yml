@@ -45,6 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       f1: ${{ steps.read_report.outputs.f1 }}
+      f1_old: ${{ steps.upload_artifact.outputs.f1_old }}
 
     steps:
       - uses: actions/checkout@v4
@@ -103,43 +104,82 @@ jobs:
           F1=$(python -c "import json; d=json.load(open('outputs/report.json')); print(d['f1_score'])")
           echo "f1=$F1" >> $GITHUB_OUTPUT
 
+      - name: Print detailed evaluation report (Bonus 3)
+        run: |
+          if [ -f outputs/detail.txt ]; then
+            cat outputs/detail.txt
+          fi
+
       - name: Upload model to Cloud Storage
+        id: upload_artifact
         env:
           ARTIFACT_BUCKET: ${{ secrets.ARTIFACT_BUCKET }}
         run: |
           python - <<'PYEOF'
-          import os
+          import os, json
           bucket = os.environ["ARTIFACT_BUCKET"]
-          if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
-              from google.cloud import storage
-              client = storage.Client()
-              b = client.bucket(bucket)
-              blob = b.blob("artifacts/current/model.joblib")
-              blob.upload_from_filename("models/model.joblib")
-              print("Uploaded model to GCS")
-          else:
-              import boto3
-              s3 = boto3.client("s3")
-              s3.upload_file("models/model.joblib", bucket, "artifacts/current/model.joblib")
-              print("Uploaded model to S3")
+          f1_old = 0.0
+
+          f1_current = 0.0
+          if os.path.exists("outputs/report.json"):
+              with open("outputs/report.json") as f:
+                  f1_current = float(json.load(f).get("f1_score", 0))
+
+          # Bonus 4: Doc F1 cua model cu tren Cloud Storage truoc khi ghi de
+          try:
+              if os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+                  from google.cloud import storage
+                  client = storage.Client()
+                  b = client.bucket(bucket)
+                  old_blob = b.blob("artifacts/current/report.json")
+                  if old_blob.exists():
+                      f1_old = float(json.loads(old_blob.download_as_text()).get("f1_score", 0))
+                  
+                  if f1_current >= f1_old:
+                      blob_m = b.blob("artifacts/current/model.joblib")
+                      blob_m.upload_from_filename("models/model.joblib")
+                      blob_r = b.blob("artifacts/current/report.json")
+                      blob_r.upload_from_filename("outputs/report.json")
+                      print(f"Uploaded model & report to GCS (new F1 {f1_current:.4f} >= old F1 {f1_old:.4f})")
+                  else:
+                      print(f"Skipping overwrite on GCS: new F1 ({f1_current:.4f}) < old F1 ({f1_old:.4f})")
+              else:
+                  import boto3
+                  s3 = boto3.client("s3")
+                  try:
+                      resp = s3.get_object(Bucket=bucket, Key="artifacts/current/report.json")
+                      f1_old = float(json.loads(resp["Body"].read().decode("utf-8")).get("f1_score", 0))
+                  except Exception:
+                      pass
+                  
+                  if f1_current >= f1_old:
+                      s3.upload_file("models/model.joblib", bucket, "artifacts/current/model.joblib")
+                      s3.upload_file("outputs/report.json", bucket, "artifacts/current/report.json")
+                      print(f"Uploaded model & report to S3 (new F1 {f1_current:.4f} >= old F1 {f1_old:.4f})")
+                  else:
+                      print(f"Skipping overwrite on S3: new F1 ({f1_current:.4f}) < old F1 ({f1_old:.4f})")
+          except Exception as e:
+              print("Cloud upload warning:", e)
+
+          env_output = os.environ.get("GITHUB_OUTPUT")
+          if env_output:
+              with open(env_output, "a") as f:
+                  f.write(f"f1_old={f1_old}\n")
           PYEOF
 
-      - name: Save report as artifact
+      - name: Save report as artifact (Bonus 3)
         uses: actions/upload-artifact@v4
         with:
           name: report
-          path: outputs/report.json
+          path: |
+            outputs/report.json
+            outputs/detail.txt
 
 
   # ---------------------------------------------------------------------------
   # JOB 3 - QUALITY GATE
   # Kiem tra nguong chat luong (f1_score >= 0.65).
   # Pipeline dung lai o day neu mo hinh chua dat yeu cau.
-  #
-  # Luu y: nguong o day dat tren f1_score chu KHONG phai accuracy. Bo du lieu
-  # Adult co ty le lop 75/25, nen mot mo hinh doan bua "thu nhap thap" cho moi
-  # mau da dat accuracy 0.75 ma hoan toan vo dung.
-  # Chi chay khi Job 2 (Train) hoan thanh thanh cong.
   # ---------------------------------------------------------------------------
   quality-gate:
     name: Quality Gate
@@ -147,13 +187,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Check quality gate
+      - name: Check quality gate & rollback safety (Bonus 4)
         run: |
           python - <<'PYEOF'
           f1 = float("${{ needs.train.outputs.f1 }}")
           if f1 < 0.65:
               raise SystemExit(f"FAILED: f1_score {f1:.4f} < 0.65. Huy trien khai.")
-          print(f"PASSED: f1_score = {f1:.4f} >= 0.65. Dang trien khai model.")
+          print(f"PASSED: f1_score = {f1:.4f} >= 0.65.")
+
+          # Bonus 4: Kiem tra rollback safety
+          f1_old_str = "${{ needs.train.outputs.f1_old }}".strip()
+          if f1_old_str and float(f1_old_str) > 0:
+              f1_old = float(f1_old_str)
+              if f1 < f1_old:
+                  raise SystemExit(f"FAILED (ROLLBACK SAFETY): F1 moi ({f1:.4f}) < F1 cu ({f1_old:.4f}). Huy trien khai de tranh suy giam chat luong.")
+              print(f"PASSED (BONUS 4 - MODEL COMPARISON): F1 moi ({f1:.4f}) >= F1 cu ({f1_old:.4f}). Cho phep release!")
           PYEOF
 
 

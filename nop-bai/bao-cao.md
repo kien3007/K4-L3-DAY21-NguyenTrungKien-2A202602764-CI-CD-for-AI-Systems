@@ -20,13 +20,13 @@
 
 **Bộ siêu tham số đã chọn:** `n_estimators=200`, `learning_rate=0.1`, `max_depth=5`.
 
-**Lý do:** Bộ siêu tham số `n_estimators=200`, `learning_rate=0.1`, `max_depth=5` đạt `f1_score` cao nhất (0.7149), vượt ngưỡng đảm bảo chất lượng 0.65 của hệ thống. Đáng chú ý, lần chạy 1 đạt accuracy cao nhất (0.8780 so với 0.8740 của lần 3), việc lần có accuracy cao nhất không trùng với lần có f1_score cao nhất minh chứng rằng accuracy bị chi phối mạnh bởi lớp đa số (thu nhập <= 50K chiếm hơn 75%), trong khi f1_score đo lường chuẩn xác sự cân bằng giữa precision và recall trên lớp thiểu số cần dự đoán. Ngoài ra, kết quả lần 2 (f1_score tụt xuống 0.6051) cho thấy đánh đổi rõ rệt: khi giảm learning_rate thì cần tăng n_estimators và độ sâu max_depth tương ứng để các cây bù trừ sai số hiệu quả.
+**Lý do:** Bộ tham số này đạt `f1_score` cao nhất (0.7149), vượt qua ngưỡng Quality Gate 0.65. Lần 1 có accuracy cao hơn (0.8780 so với 0.8740), chứng minh accuracy bị chi phối bởi lớp đa số (thu nhập <= 50K chiếm 75.2%), trong khi F1 phản ánh chính xác hiệu năng trên lớp thiểu số cần phát hiện. Việc giảm learning_rate ở lần 2 đòi hỏi tăng số lượng cây và độ sâu tương ứng để bù trừ sai số.
 
 ---
 
 ## 2. Vì Sao Ngưỡng Chất Lượng Đặt Trên F1 Chứ Không Phải Accuracy
 
-Tập dữ liệu Adult có phân bố lớp mất cân bằng đáng kể: lớp thu nhập cao (>50K) chỉ chiếm 24,8%, trong khi lớp thu nhập thấp chiếm tới 75,2%. Hệ quả là một mô hình sơ sài luôn đoán nhãn "thu nhập thấp" cho mọi mẫu vẫn dễ dàng đạt accuracy 75,2%, tạo ra ảo tưởng về hiệu năng cao dù thực chất hoàn toàn vô dụng vì không bắt được bất kỳ trường hợp thu nhập cao nào. F1-score của lớp dương giải quyết triệt để vấn đề này nhờ tính trung bình điều hòa giữa Precision và Recall riêng trên lớp mục tiêu, phản ánh chính xác khả năng phát hiện đúng và đủ người có thu nhập cao. Ta tuyệt đối không dùng `average="macro"` hay `average="weighted"` vì các cách tính này sẽ để lớp đa số kéo điểm lên cao, che lấp sự yếu kém trên lớp thiểu số và làm vô hiệu hóa tiêu chuẩn của Quality Gate.
+Tập dữ liệu Adult mất cân bằng khi lớp thu nhập cao (>50K) chỉ chiếm 24.8%. Mô hình đoán mò toàn bộ nhãn thu nhập thấp vẫn đạt accuracy 75.2%, tạo ảo giác chất lượng nhưng hoàn toàn vô dụng. F1-score giải quyết triệt để vấn đề này nhờ tính trung bình điều hòa giữa Precision và Recall riêng trên lớp mục tiêu. Không dùng macro hay weighted average vì lớp đa số sẽ kéo điểm trung bình lên cao, che giấu sự kém hiệu quả trên nhóm khách hàng tiềm năng.
 
 ---
 
@@ -34,28 +34,27 @@ Tập dữ liệu Adult có phân bố lớp mất cân bằng đáng kể: lớ
 
 | Khó khăn | Nguyên nhân | Cách giải quyết |
 |---|---|---|
-| Lỗi cài đặt gói `pyyaml==6.0.10` khi cài dependencies | Phiên bản 6.0.10 không tồn tại trên PyPI do gõ nhầm phiên bản. | Sửa lại thành `pyyaml==6.0.1` trong file `requirements.txt`. |
-| Lỗi `Permission denied (publickey)` khi SSH vào máy ảo EC2 | Máy ảo dùng AMI Amazon Linux 2023 nên username mặc định là `ec2-user` chứ không phải `ubuntu`. | Đổi lệnh kết nối sang `ssh -i <key.pem> ec2-user@<IP>`. |
-| Lỗi unpickle mô hình `AttributeError: CyHalfBinomialLoss` trên EC2 | Phiên bản `scikit-learn` trên EC2 (1.6.1) không tương thích với bản lúc huấn luyện (1.4.2). | Cài đặt cố định chính xác `scikit-learn==1.4.2` trên máy ảo EC2. |
+| Lỗi cài đặt gói `pyyaml==6.0.10` | Phiên bản 6.0.10 không tồn tại trên PyPI. | Cập nhật lại thành `pyyaml==6.0.1` trong `requirements.txt`. |
+| Lỗi `Permission denied (publickey)` khi SSH | Máy ảo dùng AMI Amazon Linux 2023 có username mặc định là `ec2-user`. | Đổi lệnh kết nối sang `ssh -i <key.pem> ec2-user@<IP>`. |
+| Lỗi unpickle mô hình `AttributeError` trên EC2 | Bản `scikit-learn` trên EC2 (1.6.1) lệch so với bản huấn luyện (1.4.2). | Cài đặt cố định `scikit-learn==1.4.2` trên môi trường EC2. |
 
 ---
 
-## 4. So Sánh Bước 2 và Bước 3 (bắt buộc, 2 - 3 câu)
+## 4. So Sánh Bước 2 và Bước 3
 
 | | f1_score | accuracy |
 |---|---|---|
 | Bước 2 (chỉ `train_batch1`) | 0.7149 | 0.8740 |
 | Bước 3 (thêm `train_batch2`) | 0.7354 | 0.8820 |
 
-**Nhận xét:** Khi bổ sung thêm 22.361 mẫu dữ liệu mới (nâng tổng số mẫu lên 44.722), f1_score cải thiện từ 0.7149 lên 0.7354 (+0.0205) và accuracy tăng từ 87.4% lên 88.2%. Việc tăng gấp đôi số lượng mẫu giúp Gradient Boosting học tốt hơn các biên quyết định phức tạp trên lớp thiểu số, mang lại hiệu năng cao hơn trên tập holdout. Quan trọng nhất, toàn bộ quá trình tải dữ liệu mới, chạy lại unit test, huấn luyện mô hình, kiểm tra quality gate và cập nhật server inference trên cloud VM đều diễn ra hoàn toàn tự động chỉ thông qua commit file DVC mà không cần bất kỳ can thiệp thủ công nào.
+**Nhận xét:** Bổ sung 22.361 mẫu dữ liệu mới giúp mô hình học tốt hơn các biên phân tách phức tạp, cải thiện F1 từ 0.7149 lên 0.7354 (+0.0205) và accuracy từ 87.4% lên 88.2%. Quan trọng nhất, chu trình đồng bộ dữ liệu DVC, chạy unit test, huấn luyện, kiểm tra chất lượng và cập nhật dịch vụ suy luận trên EC2 đều được kích hoạt tự động qua Git commit mà không cần thao tác thủ công.
 
 ---
 
-## 5. Phần Bonus Đã Thực Hiện (nếu có)
+## 5. Phần Bonus Đã Thực Hiện
 
-- [ ] Bonus 1 - Tracking MLflow từ xa với DagsHub: ___
-- [ ] Bonus 2 - Điều chỉnh ngưỡng quyết định: ___
-- [ ] Bonus 3 - Báo cáo precision / recall tự động: ___
-- [ ] Bonus 4 - Hoàn trả về phiên bản trước: ___
-- [ ] Bonus 5 - Cảnh báo lệch lạc dữ liệu: ___
-
+- [ ] Bonus 1 - Tracking MLflow từ xa với DagsHub: Chưa thực hiện do sử dụng SQLite nội bộ.
+- [x] Bonus 2 - Điều chỉnh ngưỡng quyết định: Quét ngưỡng từ 0.1 đến 0.9, xác định ngưỡng tối ưu là 0.30 giúp F1 tăng từ 0.7354 lên 0.7537 so với ngưỡng mặc định 0.50.
+- [x] Bonus 3 - Báo cáo precision / recall tự động: Xuất ma trận nhầm lẫn và chỉ số phân lớp ra `outputs/detail.txt` thành artifact. Đối với bài toán tiếp thị dịch vụ cao cấp, sai lầm bỏ sót khách hàng thu nhập cao (recall thấp) tốn kém hơn nhiều so với việc tiếp cận nhầm người thu nhập thấp (precision thấp) vì giá trị vòng đời khách hàng vượt trội chi phí tiếp thị.
+- [x] Bonus 4 - Hoàn trả về phiên bản trước: Đọc F1 của mô hình trước đó trên S3; nếu mô hình mới bị suy giảm hiệu năng (F1 mới < F1 cũ), pipeline sẽ dừng lại ở Quality Gate và hủy release để bảo đảm an toàn.
+- [x] Bonus 5 - Cảnh báo lệch lạc dữ liệu: Kiểm tra phân phối tập huấn luyện đạt 24.78% nhãn dương (sát mốc chuẩn 24.80%) và tự động in cảnh báo nếu độ lệch vượt quá 5%.
