@@ -53,7 +53,7 @@ Tập dữ liệu Adult mất cân bằng khi lớp thu nhập cao (>50K) chỉ 
 
 ## 5. Phần Bonus Đã Thực Hiện
 
-- [ ] Bonus 1 - Tracking MLflow từ xa với DagsHub: Chưa thực hiện do sử dụng SQLite nội bộ.
+- [x] Bonus 1 - Tracking MLflow từ xa với DagsHub: Kết nối và đồng bộ tự động toàn bộ tham số, metrics và mô hình lên máy chủ MLflow hosted trên DagsHub trong quy trình GitHub Actions qua biến môi trường xác thực.
 - [x] Bonus 2 - Điều chỉnh ngưỡng quyết định: Quét ngưỡng từ 0.1 đến 0.9, xác định ngưỡng tối ưu là 0.30 giúp F1 tăng từ 0.7354 lên 0.7537 so với ngưỡng mặc định 0.50.
 - [x] Bonus 3 - Báo cáo precision / recall tự động: Xuất ma trận nhầm lẫn và chỉ số phân lớp ra `outputs/detail.txt` thành artifact. Đối với bài toán tiếp thị dịch vụ cao cấp, sai lầm bỏ sót khách hàng thu nhập cao (recall thấp) tốn kém hơn nhiều so với việc tiếp cận nhầm người thu nhập thấp (precision thấp) vì giá trị vòng đời khách hàng vượt trội chi phí tiếp thị.
 - [x] Bonus 4 - Hoàn trả về phiên bản trước: Đọc F1 của mô hình trước đó trên S3; nếu mô hình mới bị suy giảm hiệu năng (F1 mới < F1 cũ), pipeline sẽ dừng lại ở Quality Gate và hủy release để bảo đảm an toàn.

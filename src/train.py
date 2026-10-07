@@ -31,10 +31,13 @@ def train(
         f1 (float): diem F1 cua lop duong (thu nhap > 50K) tren tap holdout.
     """
 
-    if "MLFLOW_TRACKING_URI" not in os.environ:
-        os.environ["MLFLOW_TRACKING_URI"] = "sqlite:///mlflow.db"
-        mlflow.set_tracking_uri("sqlite:///mlflow.db")
-    if "MLFLOW_ARTIFACT_ROOT" not in os.environ:
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "").strip()
+    if not tracking_uri:
+        tracking_uri = "sqlite:///mlflow.db"
+        os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
+    mlflow.set_tracking_uri(tracking_uri)
+
+    if "sqlite" in tracking_uri and "MLFLOW_ARTIFACT_ROOT" not in os.environ:
         os.environ["MLFLOW_ARTIFACT_ROOT"] = "./mlartifacts"
 
     # TODO 1: Doc du lieu huan luyen va danh gia
