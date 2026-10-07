@@ -13,11 +13,11 @@ HƯỚNG DẪN - đọc rồi XÓA TOÀN BỘ các khối chú thích này sau k
 
 | | |
 |---|---|
-| Họ và tên | ___ |
-| MSSV | ___ |
+| Họ và tên | Nguyễn Trung Kiên |
+| MSSV | 2A202602764 |
 | Lớp / Khóa | K4 |
-| Repo GitHub | https://github.com/___/___ |
-| Ngày nộp | ___ |
+| Repo GitHub | https://github.com/kien3007/K4-L3-DAY21-NguyenTrungKien-2A202602764-CI-CD-for-AI-Systems |
+| Ngày nộp | 07/10/2026 |
 
 ---
 
@@ -27,50 +27,29 @@ HƯỚNG DẪN - đọc rồi XÓA TOÀN BỘ các khối chú thích này sau k
 
 | Lần chạy | n_estimators | learning_rate | max_depth | f1_score | accuracy |
 |---|---|---|---|---|---|
-| 1 | ___ | ___ | ___ | ___ | ___ |
-| 2 | ___ | ___ | ___ | ___ | ___ |
-| 3 | ___ | ___ | ___ | ___ | ___ |
+| 1 | 100 | 0.1 | 3 | 0.7109 | 0.8780 |
+| 2 | 50 | 0.05 | 2 | 0.6051 | 0.8460 |
+| 3 | 200 | 0.1 | 5 | 0.7149 | 0.8740 |
 
-**Bộ siêu tham số đã chọn:** `n_estimators=___`, `learning_rate=___`, `max_depth=___`.
+**Bộ siêu tham số đã chọn:** `n_estimators=200`, `learning_rate=0.1`, `max_depth=5`.
 
-**Lý do:** ___
-
-<!--
-Trả lời trong phần Lý do:
-  - Vì sao bộ này tốt hơn các bộ còn lại (dựa trên f1_score, không phải accuracy)?
-  - Lần chạy có accuracy cao nhất có trùng với lần có f1_score cao nhất không?
-    Nếu không, điều đó nói lên điều gì?
-  - Bạn quan sát thấy đánh đổi nào giữa n_estimators và learning_rate?
--->
+**Lý do:** Bộ siêu tham số `n_estimators=200`, `learning_rate=0.1`, `max_depth=5` đạt `f1_score` cao nhất (0.7149), vượt ngưỡng đảm bảo chất lượng 0.65 của hệ thống. Đáng chú ý, lần chạy 1 đạt accuracy cao nhất (0.8780 so với 0.8740 của lần 3), việc lần có accuracy cao nhất không trùng với lần có f1_score cao nhất minh chứng rằng accuracy bị chi phối mạnh bởi lớp đa số (thu nhập <= 50K chiếm hơn 75%), trong khi f1_score đo lường chuẩn xác sự cân bằng giữa precision và recall trên lớp thiểu số cần dự đoán. Ngoài ra, kết quả lần 2 (f1_score tụt xuống 0.6051) cho thấy đánh đổi rõ rệt: khi giảm learning_rate thì cần tăng n_estimators và độ sâu max_depth tương ứng để các cây bù trừ sai số hiệu quả.
 
 ---
 
 ## 2. Vì Sao Ngưỡng Chất Lượng Đặt Trên F1 Chứ Không Phải Accuracy
 
-<!-- Khoảng 120 - 150 từ. -->
-
-___
-
-<!--
-Cần nêu được:
-  - Phân bố lớp của tập dữ liệu (tỷ lệ lớp thu nhập > 50K) và hệ quả của nó.
-  - Accuracy của một mô hình luôn trả lời "thu nhập thấp" là bao nhiêu, vì sao con số
-    đó gây hiểu nhầm.
-  - F1 của lớp dương đo điều gì mà accuracy không đo được.
-  - Vì sao KHÔNG dùng average="weighted" hay average="macro" khi gọi f1_score.
--->
+Tập dữ liệu Adult có phân bố lớp mất cân bằng đáng kể: lớp thu nhập cao (>50K) chỉ chiếm 24,8%, trong khi lớp thu nhập thấp chiếm tới 75,2%. Hệ quả là một mô hình sơ sài luôn đoán nhãn "thu nhập thấp" cho mọi mẫu vẫn dễ dàng đạt accuracy 75,2%, tạo ra ảo tưởng về hiệu năng cao dù thực chất hoàn toàn vô dụng vì không bắt được bất kỳ trường hợp thu nhập cao nào. F1-score của lớp dương giải quyết triệt để vấn đề này nhờ tính trung bình điều hòa giữa Precision và Recall riêng trên lớp mục tiêu, phản ánh chính xác khả năng phát hiện đúng và đủ người có thu nhập cao. Ta tuyệt đối không dùng `average="macro"` hay `average="weighted"` vì các cách tính này sẽ để lớp đa số kéo điểm lên cao, che lấp sự yếu kém trên lớp thiểu số và làm vô hiệu hóa tiêu chuẩn của Quality Gate.
 
 ---
 
 ## 3. Khó Khăn Gặp Phải và Cách Giải Quyết
 
-<!-- Nêu 2 - 3 khó khăn thật, mỗi ô một câu ngắn. -->
-
 | Khó khăn | Nguyên nhân | Cách giải quyết |
 |---|---|---|
-| ___ | ___ | ___ |
-| ___ | ___ | ___ |
-| ___ | ___ | ___ |
+| Lỗi cài đặt gói `pyyaml==6.0.10` khi cài dependencies | Phiên bản 6.0.10 không tồn tại trên PyPI do gõ nhầm phiên bản. | Sửa lại thành `pyyaml==6.0.1` trong file `requirements.txt`. |
+| Lỗi `Permission denied (publickey)` khi SSH vào máy ảo EC2 | Máy ảo dùng AMI Amazon Linux 2023 nên username mặc định là `ec2-user` chứ không phải `ubuntu`. | Đổi lệnh kết nối sang `ssh -i <key.pem> ec2-user@<IP>`. |
+| Lỗi unpickle mô hình `AttributeError: CyHalfBinomialLoss` trên EC2 | Phiên bản `scikit-learn` trên EC2 (1.6.1) không tương thích với bản lúc huấn luyện (1.4.2). | Cài đặt cố định chính xác `scikit-learn==1.4.2` trên máy ảo EC2. |
 
 ---
 
